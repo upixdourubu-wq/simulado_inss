@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulado Cebraspe - Modo Hard (INSS Full)</title>
+    <style>
+        :root {
+            --primary: #e67e22;
+            --primary-hover: #d35400;
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --text: #e0e0e0;
+            --border: #333333;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 850px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: var(--primary);
+        }
+        .config-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background-color: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        .question-card {
+            border-bottom: 1px solid var(--border);
+            padding: 20px 0;
+        }
+        .question-header {
+            font-size: 0.85em;
+            color: #aaa;
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .question-text {
+            font-size: 1.05em;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            white-space: pre-line;
+        }
+        .options {
+            display: flex;
+            gap: 15px;
+        }
+        .option-btn {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #2a2a2a;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text);
+        }
+        .option-btn.selected-certo {
+            background-color: #27ae60;
+            color: white;
+            border-color: #27ae60;
+        }
+        .option-btn.selected-errado {
+            background-color: #c0392b;
+            color: white;
+            border-color: #c0392b;
+        }
+        .hidden {
+            display: none;
+        }
+        .result-box {
+            background: #2a2a2a;
+            border: 2px solid var(--primary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .score {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        .badge-correct { color: #2ecc71; font-weight: bold; }
+        .badge-wrong { color: #e74c3c; font-weight: bold; }
+        .badge-annulled { color: #95a5a6; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Simulado Cebraspe (INSS Mode)</h1>
+
+    <!-- CONFIGURAÇÃO -->
+    <div id="setup-screen">
+        <div class="config-group">
+            <label for="filter-mode">Selecione o Escopo:</label>
+            <select id="filter-mode" onchange="toggleSubjectSelect()">
+                <option value="all">Prova Completa (Todas as Matérias)</option>
+                <option value="subject">Por Matéria Específica</option>
+            </select>
+        </div>
+
+        <div class="config-group hidden" id="subject-group">
+            <label for="filter-subject">Matéria:</label>
+            <select id="filter-subject">
+                <!-- Preenchido via JS dinamicamente -->
+            </select>
+        </div>
+
+        <div class="config-group">
+            <label for="filter-count">Quantidade de Questões:</label>
+            <select id="filter-count">
+                <option value="5">5 Questões</option>
+                <option value="15">15 Questões</option>
+                <option value="30">30 Questões</option>
+                <option value="60">60 Questões</option>
+                <option value="120">120 Questões (Simulado Completo)</option>
+                <option value="max">Todas do Banco</option>
+            </select>
+        </div>
+
+        <button onclick="startQuiz()">Gerar Simulado</button>
+    </div>
+
+    <!-- TELA DO SIMULADO -->
+    <div id="quiz-screen" class="hidden">
+        <div id="questions-container"></div>
+        <button onclick="finishQuiz()">Finalizar e Calcular Nota Cebraspe</button>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="result-screen" class="hidden">
+        <div class="result-box">
+            <h2>Pontuação Final</h2>
+            <div class="score" id="final-score">0 Líquidos</div>
+            <div id="stats-detail" style="margin-top: 10px;"></div>
+        </div>
+        <div id="review-container"></div>
+        <button onclick="resetQuiz()">Novo Simulado</button>
+    </div>
+</div>
+
+<script>
+    // Coleção consolidada das questões de 2016 e 2022
+    const prueba2022Data = [
+      { "id": "INSS2022_TSS_001", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "O envelhecimento da população mundial é um dos fatores que explicam a ampliação da presença de mulheres no mercado de trabalho.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_002", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Os serviços de cuidados fornecidos na América Latina diferenciam-se dos providos em países do hemisfério norte.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_003", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Por mencionar dados, articular depoimentos e expor argumentos, o texto configura-se como predominantemente descritivo.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_004", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "A profissionalização do trabalho de cuidados nos últimos anos remodelou a essência do conceito de cuidado.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_005", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Ao confirmarem a forte dimensão emocional do trabalho de cuidados, os estudos relatados no texto recomendam que esse setor da economia não seja assumido pelo Estado nem seja objeto de mercantilização.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_006", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "No último parágrafo, a expressão \"nas quais\" poderia, sem prejuízo sintático para o texto, ser substituída por cujas.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_007", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "No terceiro parágrafo, o segmento \"a ideia\" (segundo período) retoma, por coesão, a \"noção\" descrita no primeiro período.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_008", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Seria preservada a coerência das ideias do texto se, no segundo parágrafo, a expressão \"na medida em que\" fosse substituída pelo vocábulo pois.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_009", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "O emprego das vírgulas após os trechos \"De acordo com o último relatório da Organização Internacional do Trabalho (OIT)\" (no segundo período do primeiro parágrafo) e \"Conforme definição da OIT\" (no início do segundo parágrafo) justifica-se pelo mesmo motivo.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_010", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "No início do último parágrafo, o emprego da conjunção \"entretanto\" objetiva evidenciar uma contraposição com o que se afirma no parágrafo anterior; por isso, essa conjunção poderia ser substituída, sem prejuízo dos sentidos e da coerência do texto, por conquanto.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_011", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Por constituir um substantivo, o termo 'bem-estar', empregado no segundo parágrafo, poderia ser grafado, em conformidade com a ortografia oficial, sem o hífen: bem estar.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_012", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "No terceiro período do segundo parágrafo, o termo \"sua\" refere-se à expressão \"conceito de cuidado\".", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_013", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "No início do quarto parágrafo, a expressão \"Por outro lado\" desempenha papel de reforço da coesão textual e poderia ser substituída, sem prejuízo semântico ao texto original, por Inversamente.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_014", "prova": "INSS 2022", "materia": "Língua Portuguesa", "texto": "Seria mantida a correção gramatical do texto caso o termo 'analisado' (quarto parágrafo) fosse flexionado no feminino — analisada —, dada a possibilidade de sua concordância com o termo subsequente 'crise', com o qual estabelece relação sintático-semântica.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_015", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "Situação hipotética: Carlos, servidor público federal, com o objetivo de realizar uma doação a uma instituição de caridade que se encontrava em péssima situação financeira, pleiteou auxílio financeiro do representante de uma empresa multinacional como condição para cumprir sua missão. Ao ser atendido em seu pleito pela empresa, Carlos prontamente concretizou a doação no valor integral que havia recebido. Assertiva: Nessa situação, tendo em vista que Carlos não reteve para si qualquer quantia da doação recebida, sua atitude encontra respaldo no CEPSPC.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_016", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "O servidor público não poderá, em hipótese alguma, desprezar o elemento ético da sua conduta. Assim, ele não terá apenas que decidir entre o legal e o ilegal, o conveniente e o inconveniente, mas principalmente entre o honesto e o desonesto, à luz das regras constitucionais.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_017", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "Situação hipotética: Bruno, servidor público federal, todos os dias, após o término do seu expediente, dirige-se a um bar muito frequentado da cidade em que reside para ingerir bebida alcóolica. Nessas ocasiões, habitualmente, Bruno é visto embriagado pelos demais frequentadores do bar. Por volta das 22h, ele costuma ir para sua casa, de forma que esse comportamento não afeta o seu desempenho profissional. Assertiva: Nessa situação, a embriaguez habitual de Bruno fora do ambiente de trabalho não fere o CEPSPC, uma vez que se trata de conduta do dia a dia de sua vida privada, que não pode afetar o seu bom conceito na vida profissional.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_018", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "A Comissão de Ética Pública é integrada por brasileiros que preencham os requisitos de idoneidade moral, reputação ilibada e notória experiência em administração pública, designados para mandatos de dois anos, sendo vedada a recondução.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_019", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "No âmbito das comissões de ética, caso se conclua pela existência de falta ética após a instrução processual, poderá ser adotada, entre outras, a providência de recomendação de abertura de procedimento administrativo, se a gravidade da conduta assim o exigir.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_020", "prova": "INSS 2022", "materia": "Ética no Serviço Público", "texto": "A atuação da Comissão de Ética Pública poderá ser provocada por qualquer cidadão, agente público, pessoa jurídica de direito privado, associação ou entidade de classe, visando a apuração de infração ética imputada a agente público, órgão ou setor específico de ente estatal.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_021", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "A casa é asilo inviolável do indivíduo e nela ninguém poderá ingressar sem o consentimento do morador, salvo se houver determinação judicial para o ingresso.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_022", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "O direito de reunião está assegurado a todos, desde que observados os seguintes requisitos constitucionais: caráter pacífico; localização aberta ao público; prévia autorização da autoridade competente; e não frustação de outra reunião anteriormente convocada para o mesmo local.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_023", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "São equivalentes às emendas constitucionais os tratados internacionais sobre direitos humanos aprovados na Câmara dos Deputados e no Senado Federal, em dois turnos, por três quintos dos votos dos membros de cada uma dessas casas.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_024", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "O indivíduo que tomar posse em determinado cargo efetivo de uma autarquia federal será obrigado a filiar-se ao sindicato de sua categoria profissional, pois a esse sindicato cabe a defesa dos direitos e interesses coletivos ou individuais da categoria, inclusive em questões judiciais ou administrativas.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_025", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "A cassação dos direitos políticos é possível nos casos de cancelamento da naturalização por sentença transitada em julgado; incapacidade civil absoluta; condenação criminal transitada em julgado, enquanto durarem seus efeitos; recusa de cumprir obrigação a todos imposta ou prestação alternativa; e improbidade administrativa.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_026", "prova": "INSS 2022", "materia": "Direito Constitucional", "texto": "Brasileiros naturalizados podem ser eleitos membros da Câmara dos Deputados e do Senado Federal, caso cumpram as demais condições de elegibilidade, porque tais cargos não são privativos de brasileiros natos.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_027", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Em regra, é vedada a acumulação remunerada de cargos públicos. Essa vedação estende-se a empregos e funções e abrange autarquias, fundações, empresas públicas, sociedades de economia mista, suas subsidiárias, e sociedades controladas, direta ou indiretamente, pelo poder público.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_028", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Somente por lei específica poderá ser criada autarquia e autorizada a instituição de empresa pública, sociedade de economia mista e fundação pública, cabendo, em todos os casos, lei complementar para definir as áreas de atuação dessas entidades.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_029", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "O servidor público estável perderá o seu cargo de provimento efetivo em virtude de: sentença judicial transitada em julgado, processo administrativo em que lhe seja assegurada ampla defesa ou procedimento de avaliação periódica de desempenho, na forma de lei complementar, assegurada ampla defesa.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_030", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Situação hipotética: Uma servidora pública do INSS, ocupante de cargo efetivo de técnico do seguro social, foi eleita deputada federal nas eleições de 2022. Assertiva: Nessa situação, a servidora ficará afastada de seu cargo efetivo no INSS para o exercício de mandato eletivo na Câmara dos Deputados, sendo esse tempo de serviço contado para todos os efeitos legais, exceto para promoção por merecimento.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_031", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Em sentido subjetivo, formal ou orgânico, a administração pública consiste no conjunto de órgãos, entidades e agentes estatais no exercício da função administrativa do Estado. Já a administração pública em sentido objetivo, material ou funcional designa o conjunto de atividades administrativas exercidas pelo Estado para a consecução dos interesses coletivos.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_032", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "O abuso de poder é tratado pela doutrina majoritária como gênero cujas espécies são: o excesso de poder, que ocorre quando o agente público atua nos limites de sua competência legalmente definida, mas visando a um fim diverso da consecução do interesse público; e o desvio de poder, que se dá quando o agente público exorbita da competência que lhe foi legalmente atribuída.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_033", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "A lei é considerada a fonte primordial do direito administrativo brasileiro, razão por que esse ramo do direito público nacional se encontra codificado, ou seja, as normas administrativas estão reunidas em um só corpo de leis.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_034", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "O INSS é uma autarquia federal subordinada ao Ministério do Trabalho e Previdência.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_035", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "De acordo com a Lei n.º 8.112/1990, são formas de provimento de cargo público: nomeação, promoção, ascensão, transferência, readaptação, reversão, aproveitamento, reintegração e recondução.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_036", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "A administração pode revogar seus próprios atos, quando eivados de vícios que os tornem ilegais, porque deles não se originam direitos, podendo, ainda, anulá-los por motivo de conveniência ou oportunidade, respeitados os direitos adquiridos.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_037", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "A concessão de serviço público consiste na delegação de sua prestação, feita pelo poder concedente, por meio de licitação, na modalidade concorrência ou diálogo competitivo, a pessoa jurídica ou a consórcio de empresas que demonstre capacidade para o seu desempenho, por sua conta e risco e por prazo determinado.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_038", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Será impedido de atuar em processo administrativo o servidor público que tiver interesse direto ou indireto na matéria. Além disso, poderá ser arguida a suspeição de autoridade que tenha amizade íntima ou inimizade notória com algum dos interessados nesse processo.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_039", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Com base na teoria do risco administrativo, admite-se pesquisa em torno da culpa da vítima, a fim de abrandar ou excluir a responsabilidade civil objetiva das pessoas jurídicas de direito público e das pessoas jurídicas de direito privado prestadoras de serviço público.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_040", "prova": "INSS 2022", "materia": "Direito Administrativo", "texto": "Ainda que não seja agente público, aquele que induzir ou concorrer culposa ou dolosamente para a prática de ato de improbidade administrativa sujeitar-se-á, no que couber, às disposições da Lei n.º 8.429/1992.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_041", "prova": "INSS 2022", "materia": "Informática", "texto": "Os cookies, mencionados no texto da figura apresentada, podem salvar configurações dos usuários em um arquivo armazenado nos computadores desses usuários.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_042", "prova": "INSS 2022", "materia": "Informática", "texto": "De acordo com o trecho destacado na barra de endereço mostrada na figura em apreço (cadeado seguido do trecho https://), é correto afirmar que a página em questão é parte da intranet do INSS, acessível somente por meio de senha, conforme indica o símbolo do cadeado à esquerda do endereço.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_043", "prova": "INSS 2022", "materia": "Informática", "texto": "Na planilha mostrada na figura, que representa um conjunto de células no MS Excel 365, foi realizada a sequência: todas as células mostradas foram selecionadas; foi selecionada a opção Remover Duplicadas; foram selecionadas todas as colunas na caixa de diálogo Remover Duplicadas e clicou-se em OK. Nessa situação hipotética, nenhuma linha da planilha foi apagada.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_044", "prova": "INSS 2022", "materia": "Informática", "texto": "Phishing é um tipo de invasão mediante o uso de software malicioso que torna inacessíveis os dados armazenados no equipamento invadido, geralmente usando criptografia, no qual o agente invasor exige o pagamento de resgate para restabelecer o acesso do usuário aos dados afetados.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_045", "prova": "INSS 2022", "materia": "Informática", "texto": "O recurso BitLocker, ferramenta de criptografia presente no Windows 10, possibilita que o usuário proteja a privacidade de seus dados.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_046", "prova": "INSS 2022", "materia": "Raciocínio Lógico-Matemático", "texto": "Situação: entre os segurados que apresentaram demandas na semana anterior, 75% receberam atendimento remoto e 35% atendimento presencial, havendo casos iniciados no remoto e concluídos no presencial. Se 20% dos segurados que buscaram atendimento presencial o fizeram para solicitar a reativação do BPC, então 10% do total de beneficiários que buscaram atendimento pleiteavam a reativação do BPC.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_047", "prova": "INSS 2022", "materia": "Raciocínio Lógico-Matemático", "texto": "Na mesma situação hipotética, se havia somente as duas modalidades de atendimento descritas, é correto concluir que 10% dos segurados passaram pelas duas modalidades de atendimento em suas demandas.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_048", "prova": "INSS 2022", "materia": "Raciocínio Lógico-Matemático", "texto": "Proposição P: 'Nos processos de justificações administrativas, quando o segurado apresentar testemunhas com valor de prova, a agência fornecerá um servidor exclusivo para o atendimento.' A tabela-verdade associada à proposição P possui oito linhas.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_049", "prova": "INSS 2022", "materia": "Raciocínio Lógico-Matemático", "texto": "A proposição \"o segurado apresentar testemunhas com ou sem valor de prova\" é uma tautologia.", "gabarito": "C", "anulada": true },
+      { "id": "INSS2022_TSS_050", "prova": "INSS 2022", "materia": "Raciocínio Lógico-Matemático", "texto": "Há apenas uma possibilidade de combinação de valores lógicos para as proposições simples que compõem P que a tornam falsa.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_051", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O princípio democrático exige a necessidade de envolvimento de diversos segmentos na administração do sistema de seguridade, de forma que sua gestão deve contar com a participação dos trabalhadores, dos empregadores, dos aposentados e do governo.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_052", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "São garantidas a uniformidade e a equivalência dos benefícios e serviços às populações urbanas e rurais, embora não se objetive a equidade na forma de participação no custeio.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_053", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O princípio da territorialidade vige no âmbito do direito previdenciário, razão por que é vedada a aplicação da norma brasileira desse ramo do direito fora do território nacional.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_054", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "No direito previdenciário, a lei nova não surte efeitos pretéritos, salvo se em benefício de infratores de norma de custeio.", "gabarito": "E", "anulada": true },
+      { "id": "INSS2022_TSS_055", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Será segurado obrigatório, na qualidade de contribuinte individual, o brasileiro contratado no Brasil para trabalhar como empregado em empresa domiciliada no exterior, cuja maioria do capital votante pertença a empresa brasileira de capital nacional.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_056", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Daniel, pessoa física residente em imóvel rural, desenvolve, como produtor e de forma individual, atividade agropecuária em área de três módulos fiscais, com exploração de atividade turística na propriedade rural durante 90 dias por ano. Assertiva: Nessa situação, a exploração da atividade turística na propriedade rural não descaracteriza a condição de segurado especial de Daniel.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_057", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "São segurados facultativos: o ministro de confissão religiosa e o membro de instituto de vida consagrada, de congregação ou de ordem religiosa.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_058", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Para fins previdenciários, considera-se empresa a firma individual ou sociedade que assume risco de atividade econômica, a ela equiparando-se a cooperativa e a missão diplomática.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_059", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A filiação de um segurado obrigatório à previdência social se concretiza com o pagamento da primeira contribuição previdenciária desse segurado.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_060", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "É considerado segurado obrigatório o exercente de mandato eletivo federal, estadual ou municipal, desde que não vinculado a regime próprio de previdência social (RPPS).", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_061", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Do ponto de vista previdenciário, considera-se empresa a firma individual ou sociedade que assume o risco de atividade econômica urbana ou rural, com fins lucrativos, excluídos os órgãos e entidades da administração pública direta, indireta ou fundacional.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_062", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Em razão do princípio da pessoalidade, considera-se empregador doméstico exclusivamente a pessoa física ou a família que admite a seu serviço, sem finalidade lucrativa, empregado doméstico.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_063", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Constituem contribuições sociais, entre outras, as receitas das empresas, incidentes sobre a remuneração paga ou creditada aos segurados a seu serviço.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_064", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "As multas e os juros moratórios constituem outras receitas da seguridade social, nas quais não se inclui a atualização monetária.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_065", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "É obrigação das companhias seguradoras que mantêm o seguro obrigatório de danos pessoais causados por veículos automotores de vias terrestres o repasse à seguridade social de 50% do valor total do prêmio recolhido e destinado ao Sistema Único de Saúde para custeio da assistência médico-hospitalar dos segurados vitimados em acidentes de trânsito.", "gabarito": "E", "anulada": true },
+      { "id": "INSS2022_TSS_066", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A contribuição empresarial destinada à seguridade social de associação desportiva que mantém equipe de futebol profissional corresponde a 20% da receita bruta decorrente dos espetáculos desportivos de que participe em todo território nacional, em qualquer modalidade desportiva, inclusive jogos internacionais, e de 5% da receita de qualquer forma de patrocínio, licenciamento de uso de marcas e símbolos, publicidade, propaganda e de transmissão de espetáculos desportivos.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_067", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Salário de contribuição é o valor que serve de base de incidência das alíquotas das contribuições previdenciárias dos segurados, à exceção do segurado especial.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_068", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Para o trabalhador, os valores relativos ao salário de contribuição que forem sonegados não serão computados para fins de cálculo de benefícios como aposentadoria, auxílio-doença, salário-maternidade ou mesmo pensão por morte.", "gabarito": "E", "anulada": true },
+      { "id": "INSS2022_TSS_069", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Em regra, o limite mínimo do salário de contribuição corresponde, para os segurados facultativos, ao piso salarial legal ou normativo da categoria.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_070", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Quando a remuneração do trabalhador avulso, em determinado mês, não alcançar o salário mínimo, ele poderá complementar a sua contribuição visando o cômputo da competência desse mês como tempo de contribuição.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_071", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O limite máximo do salário de contribuição será atualizado sempre que ocorrer alteração do valor dos benefícios previdenciários.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_072", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Respeitados os direitos adquiridos, nenhum benefício previdenciário reajustado poderá exceder o limite máximo do salário de benefício na data do reajustamento.", "gabarito": "E", "anulada": true },
+      { "id": "INSS2022_TSS_073", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Cabe ao INSS acompanhar a arrecadação das contribuições sociais e das contribuições instituídas a título de substituição.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_074", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A multa incidente sobre os débitos de contribuições previdenciárias não pagas nos prazos previstos na legislação específica será calculada diariamente e não poderá extrapolar o percentual de 20%.", "gabarito": "E", "anulada": true },
+      { "id": "INSS2022_TSS_075", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Os segurados facultativos devem recolher a contribuição relativa a determinado mês, por iniciativa própria, até o dia 15 do mês subsequente àquele a que se refira a contribuição, inexistindo outra forma de efetuar esse recolhimento.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_076", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O anistiado político que, durante algum tempo, ficou exilado no exterior em decorrência de ameaça de punição por motivo exclusivamente político poderá usar o tempo do exílio como tempo de serviço para efeito de aposentadoria, independentemente do recolhimento da contribuição previdenciária referente ao tempo do exílio.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_077", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Francisco, que recebe pensão especial por ter participado de operações bélicas durante a Segunda Guerra Mundial, foi convidado para assumir a secretaria de segurança pública de determinado estado da Federação. Assertiva: Nessa situação, Francisco não poderá cumular a pensão especial de ex-combatente com os rendimentos decorrentes do cargo de secretário, mas poderá optar por um ou outro rendimento.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_078", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "As crianças vítimas de sequelas neurológicas decorrentes da síndrome congênita do zika vírus têm direito ao recebimento de uma pensão especial mensal e vitalícia que será devida pela secretaria de assistência social dos municípios em que elas residam, e que será paga com recursos orçamentários provenientes da União.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_079", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Paulo, que era portador de deficiência física decorrente da síndrome da talidomida e que, por esse motivo, recebia pensão especial há mais de quinze anos, faleceu recentemente em decorrência de complicações decorrentes dessa enfermidade. Até então, Paulo convivia em companhia da sua mãe e a pensão por ele recebida era a única fonte de renda familiar. Assertiva: nessa situação, a mãe de Paulo tem direito de receber pensão previdenciária decorrente da morte de seu filho Paulo.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_080", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O filho do seringueiro cujo pai tenha sido recrutado para trabalhar na produção de borracha nos seringais da região amazônica durante a Segunda Guerra Mundial e que comprovar o seu estado de carência econômica terá direito a receber o pagamento de pensão mensal vitalícia, cumulativo com o benefício concedido a seu pai.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_081", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O segurado do RGPS vítima de acidente de trabalho poderá exigir do INSS, além dos benefícios decorrentes do acidente de trabalho, o transporte do acidentado para tratamento fora do seu domicílio, quando necessário, assim como o fornecimento de instrumentos de auxílio para a sua locomoção quando a perda ou redução da capacidade funcional do segurado puder ser atenuada pelo seu uso.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_082", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Terá direito ao serviço de reabilitação profissional prestado pelo INSS, que tenha por objetivo proporcionar o reingresso ao mercado de trabalho, o segurado que ficar incapacitado parcial ou totalmente para o trabalho, independentemente do cumprimento do tempo de carência.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_083", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Flávio formalizou pedido de pensão por morte em decorrência do óbito do seu companheiro Rodrigo. Após a análise da documentação apresentada, o INSS indeferiu o pedido sob o argumento de que Flávio não era dependente economicamente de Rodrigo. Assertiva: Nessa situação, contra a decisão de indeferimento caberá recurso ordinário na via administrativa, recurso este que deverá ser julgado pela Junta de Recursos do Conselho de Recursos da Previdência Social.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_084", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Haroldo se aposentou por tempo de contribuição em abril de 2018 e somente em setembro de 2022 constatou-se que o valor do seu benefício previdenciário estava sendo pago a menor desde a data da sua implantação. Assertiva: Nessa situação, não está prescrito o direito de Haroldo requerer a revisão do valor do seu benefício nem tampouco o pagamento das diferenças devidas a partir da sua implantação.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_085", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Mário, contador da empresa Silva & Silva Ltda., deixou de lançar mensalmente nos títulos próprios da contabilidade da empresa as quantias descontadas dos seus segurados, configurando com isso o crime de sonegação de contribuição previdenciária tipificado em artigo do Código Penal, razão por que contra ele foi movida ação judicial. Assertiva: Nessa situação, se Mário confessar espontaneamente o delito antes de proferida a sentença pertinente e recolher integralmente o valor sonegado, a sua pena será reduzida pela metade.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_086", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O crime de apropriação indébita previdenciária é crime comissivo comum, tendo em vista que qualquer pessoa pode deixar de repassar à previdência social as contribuições recolhidas dos contribuintes, no prazo e na forma legal ou convencional.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_087", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O servidor público estadual efetivo vinculado a RPPS poderá se filiar ao RGPS na condição de segurado facultativo, ainda que não esteja afastado sem vencimentos.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_088", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O indivíduo segurado do RGPS que obtiver a guarda judicial de uma criança de cinco anos de idade para fins de adoção terá direito ao benefício do salário-maternidade, o qual será pago diretamente pelo INSS.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_089", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Maria, que contribui para o RGPS na condição de empregada doméstica há dezessete anos ininterruptos, recentemente completou sessenta e dois anos de idade. Assertiva: Nessa situação, Maria tem direito ao benefício da aposentadoria, cujo valor do benefício será equivalente a 100% da média aritmética simples das últimas trinta e seis contribuições mensais efetivamente recolhidas.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_090", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Cláudio contribuiu para o RGPS pelo período de sete anos e seis meses, quando então ficou incapacitado para o trabalho e entrou em gozo do benefício de auxílio por incapacidade temporária, condição na qual ele permaneceu por dois anos e dez meses. Assertiva: Nessa situação, devido ao tempo que ficou sem contribuir para o INSS em decorrência do benefício, Cláudio perdeu a sua qualidade de segurado, mas poderá recuperá-la após doze contribuições mensais ininterruptas.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_091", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética envolvendo período de defeso de camarão e lagosta fixado pelo IBAMA, com Manoel (pescador artesanal de camarão), José (pescador artesanal de crustáceo e músico empregado), Flávio (pescador profissional de tainha) e Maria (pescadora artesanal e beneficiária de pensão por morte). Manoel está habilitado para usufruir o seguro-desemprego.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_092", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Na mesma situação hipotética, José, ainda que empregado, tem direito ao seguro-desemprego.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_093", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Na mesma situação hipotética, Maria, ainda que beneficiária de pensão por morte, tem direito ao seguro-desemprego.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_094", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Na mesma situação hipotética, Manoel, José e Maria, ao pleitearem o seguro-desemprego, deverão solicitá-lo ao IBAMA, ao passo que Flávio deverá solicitá-lo ao INSS.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_095", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Na mesma situação hipotética, Flávio poderá usufruir o seguro-desemprego se o IBAMA declarar o defeso da tainha.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_096", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O tempo de atividade rural reconhecido pelo INSS por intermédio de certidão de tempo de serviço é reconhecido para fins de compensação financeira previdenciária entre o RGPS e o RPPS, independentemente de indenização a cargo do servidor.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_097", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O tempo de contribuição concomitante não gera direito adquirido à compensação financeira para efeito de aposentadoria.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_098", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Carlos contribuiu durante quinze anos para o RGPS, mas se aposentou como servidor vinculado ao RPPS da União. Assertiva: Nessa situação, o RGPS e o RPPS são considerados, respectivamente, como regime de origem e regime instituidor.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_099", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Veda-se a contagem de tempo de contribuição fictício, mas se permite a acumulação de tempo de contribuição municipal ou distrital com tempo de contribuição estadual ou federal.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_100", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A proteção social especial é um tipo de proteção que, entre outros objetivos, visa contribuir para a reconstrução de vínculos familiares e comunitários e a proteção de famílias e indivíduos para o enfrentamento de situações de violação de direitos.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_101", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Terá direito ao auxílio-inclusão a pessoa com deficiência física moderada ou grave, qualificada como segurado obrigatório do RGPS ou filiado a RPPS, que receba o BPC e passe a exercer atividade com remuneração limitada a dois salários mínimos.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_102", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "No âmbito do Sistema Único de Assistência Social, compete à União efetuar o pagamento dos auxílios natalidade e funeral.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_103", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Carlos, estrangeiro, idoso maior de 65 anos, residente no país, é comprovadamente incapaz de prover a própria subsistência e não tem família no Brasil. Assertiva: Nessa situação, o fato de Carlos ser estrangeiro impede-lhe o direito ao BPC.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_104", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Situação hipotética: Jorge, com 65 anos de idade, e Márcia, também com 65 anos de idade, vivem em coabitação. Ela recebe benefício previdenciário cujo montante ultrapassa um quarto do salário mínimo. Assertiva: Nessa situação, o fato de Márcia receber benefício previdenciário no referido montante não retira de Jorge o direito ao BPC.", "gabarito": "C", "anulada": true },
+      { "id": "INSS2022_TSS_105", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O critério de aferição da percepção da renda familiar é considerado suficiente pela lei para a concessão do BPC.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_106", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Os proventos de aposentadoria e as pensões estão limitados à remuneração do respectivo servidor no cargo efetivo em que se deu a aposentadoria ou que serviu de referência para a concessão da pensão.", "gabarito": "C", "anulada": true },
+      { "id": "INSS2022_TSS_107", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Desde a promulgação da referida EC, passou a ser obrigatória a instituição de RPPS por todos os entes federativos.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_108", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Considera-se pessoa com deficiência aquela que tem impedimentos de longo prazo de diversas naturezas, inclusive sensorial, os quais, em interação com diversas barreiras, podem obstruir sua participação plena e efetiva na sociedade em igualdade de condições com as demais pessoas.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_109", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "É assegurada a concessão de aposentadoria pelo RGPS ao segurado com deficiência aos 29 anos de tempo de contribuição, se homem, e aos 24 anos de tempo de contribuição, se mulher, no caso de segurado com deficiência leve.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_110", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "É garantida a concessão de aposentadoria pelo RGPS à segurada com deficiência com 55 anos de idade, desde que cumprido tempo mínimo de contribuição de quinze anos e comprovada deficiência durante igual período.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_111", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O grau de deficiência para fins de concessão de aposentadoria poderá ser comprovado por diferentes meios, inclusive o testemunhal.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_112", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A renda mensal da aposentadoria por idade devida ao segurado com deficiência é calculada, em qualquer situação, aplicando-se, sobre o salário de benefício, o percentual de 100%.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_113", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "As atividades de saúde são de relevância pública e sua organização obedecerá diversos princípios reitores, entre os quais o acesso universal; a descentralização, com direção única em cada esfera; e a participação da iniciativa privada na assistência à saúde, desde que obedecidos os princípios constitucionais.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_114", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A assistência social é política que visa atender as necessidades básicas, independentemente de contribuição, e deve ser organizada de forma centralizada.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_115", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A finalidade da previdência social é assegurar aos seus beneficiários meios de manutenção em situações adversas, tais como desemprego involuntário e encargos de família, garantida a preservação do valor dos benefícios e a universalidade de participação nos planos, mediante contribuição.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_116", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "A seguridade social obedecerá a diversos princípios, tais como a vedação à seletividade na prestação dos serviços e à redutibilidade do valor nominal dos benefícios.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_117", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "As propostas orçamentárias anuais ou plurianuais da seguridade social são elaboradas por comissão formada necessariamente por representantes das áreas da saúde, da previdência social e da assistência social.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_118", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Informações inseridas extemporaneamente no CNIS, excetuadas aquelas que forem retificadoras de dados anteriormente informados, somente serão aceitas se corroboradas por documentos que comprovem a sua regularidade.", "gabarito": "E", "anulada": false },
+      { "id": "INSS2022_TSS_119", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "Não é prescindível a expedição de ato administrativo fundamentado para que as informações constantes na carteira profissional ou carteira de trabalho e previdência social sejam desconsideradas.", "gabarito": "C", "anulada": false },
+      { "id": "INSS2022_TSS_120", "prova": "INSS 2022", "materia": "Seguridade Social", "texto": "O INSS deverá solicitar ao filiado a apresentação de documentos comprobatórios de informações que não constarem no CNIS, inclusive aqueles expedidos por órgãos públicos ou certidões, vedada a sua obtenção diretamente do órgão ou da entidade responsável pela base de dados oficial.", "gabarito": "E", "anulada": false }
+    ];
+
+    const prueba2016Data = [
+      {"id":"INSS2016_001","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"O trecho \"dá muito trabalho\" (R.27) constitui uma referência de seu Joaquim à confecção da estante, tarefa que, segundo ele, seria trabalhosa.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_002","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"De acordo com as informações do texto, é correto inferir que seu Joaquim era analfabeto, uma vez que ele \"desenhou o endereço na nota\" (R.22).","gabarito":"E","anulada":false},
+      {"id":"INSS2016_003","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"A expressão \"armar ali a minha tenda\" (R.3) foi empregada no texto em sentido figurado.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_004","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"De acordo com as informações do texto, Vinicius de Moraes passou a morar no apartamento onde antes residia Mário Pedrosa.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_005","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"O \"momento de hesitação\" (R.15) vivido pelo narrador deveu-se ao medo de informar o endereço a um desconhecido.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_006","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"O verbo dever foi empregado na linha 17 no sentido de ser provável.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_007","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"A correção gramatical e o sentido do texto seriam preservados, caso se substituísse o trecho \"lembrei-me de que\" (R.18) por lembrei que.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_008","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"A forma verbal \"teria\" (R.2) está flexionada na terceira pessoa do singular, para concordar com \"apartamento\" (R.1), núcleo do sujeito da oração em que ocorre.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_009","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"Seria mantida a correção do texto caso o trecho \"onde caberiam\" (R.6) fosse substituído por que caberia.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_010","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"No período \"Tanto que, quando (...) momento de hesitação\" (R.13 a R.15), o emprego de todas as vírgulas deve-se à mesma regra de pontuação.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_011","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"Princesas e diplomatas eram valorados conforme a qualidade das bibliotecas que seus países possuíam e a parcela dos livros que estavam dispostos a ceder em negociações diversas.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_012","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"A Real Livraria foi erguida com os destroços resultantes do terremoto que atingiu Lisboa, como símbolo da força de Portugal na superação da tragédia que acabava de assolar o país.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_013","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"A expressão \"essas coleções\" (R.5) retoma, por coesão, o termo \"Bibliotecas\" (R.1).","gabarito":"C","anulada":false},
+      {"id":"INSS2016_014","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"O sinal de dois-pontos empregado imediatamente após \"biblioteca\" (R.8) introduz um termo de natureza explicativa.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_015","prova":"INSS 2016","materia":"Língua Portuguesa","texto":"Com base no Manual de Redação da Presidência da República: o trecho apresentado (cabeçalho com data, destinatário 'À Senhora Ana Silva', endereço e assunto) é adequado para compor a parte inicial de um memorando.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_016","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"Situação hipotética envolvendo Bruno, servidor temporário que praticou conduta vedada pelo Código de Ética. Se, para a infração praticada por Bruno, estiverem previstas as penalidades de advertência ou suspensão, a comissão de ética será competente para, após o regular procedimento, aplicar diretamente a penalidade.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_017","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"Mesmo prestando serviço de natureza temporária, Bruno está sujeito às disposições contidas no Decreto n.º 1.171/1994.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_018","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"Durante o procedimento de apuração da conduta de Bruno, a comissão de ética deverá garantir-lhe proteção à sua honra e à sua imagem.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_019","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"Embora deva respeitar a hierarquia, o servidor público está obrigado a representar contra ações manifestamente ilegais de seus superiores hierárquicos.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_020","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"O rol de legitimados a provocar a atuação da Comissão de Ética Pública, prevista no Decreto n.º 6.029/2007, é restrito a agentes públicos, sendo, entretanto, permitido a qualquer cidadão provocar a atuação das comissões de ética de que trata o Decreto n.º 1.171/1994.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_021","prova":"INSS 2016","materia":"Ética no Serviço Público","texto":"Em razão da relevância do serviço público prestado, é vitalício o mandato de membro integrante da Comissão de Ética Pública, o que evita interferências externas na atuação da comissão.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_022","prova":"INSS 2016","materia":"Direito Administrativo","texto":"Servidor removido para outra sede para acompanhar cônjuge também servidora removida no interesse da administração. Ainda que o servidor e sua esposa sejam integrantes de órgãos pertencentes a poderes distintos da União, a remoção do servidor poderia ser concedida.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_023","prova":"INSS 2016","materia":"Direito Administrativo","texto":"É correto inferir que houve interesse da administração na remoção do servidor, pois esse é um dos requisitos para sua concessão.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_024","prova":"INSS 2016","materia":"Direito Administrativo","texto":"A referida remoção pressupõe o deslocamento do cargo ocupado pelo servidor para outro órgão ou entidade do mesmo poder.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_025","prova":"INSS 2016","materia":"Direito Administrativo","texto":"O período de afastamento do servidor para o deslocamento e para a retomada do exercício do cargo no novo município, observados os limites legais, é considerado como de efetivo exercício.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_026","prova":"INSS 2016","materia":"Direito Administrativo","texto":"Como medida que contribui para a melhoria da qualidade de vida do servidor público, é-lhe facultado optar pela acumulação de períodos de licença-capacitação, caso não seja possível usufruí-los após cada período aquisitivo.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_027","prova":"INSS 2016","materia":"Direito Administrativo","texto":"Em conformidade com a Lei n.º 8.112/1990, o servidor público poderá ser afastado do Brasil para missão oficial por tempo indeterminado.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_028","prova":"INSS 2016","materia":"Direito Administrativo","texto":"A garantia constitucional de acesso dos usuários a registros administrativos e a informações sobre atos de governo está relacionada ao princípio da eficiência.","gabarito":"C","anulada":true},
+      {"id":"INSS2016_029","prova":"INSS 2016","materia":"Direito Administrativo","texto":"Na análise da moralidade administrativa, pressuposto de validade de todo ato da administração pública, é prescindível avaliar a intenção do agente.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_030","prova":"INSS 2016","materia":"Direito Administrativo","texto":"No cômputo do limite remuneratório (chamado de teto constitucional), devem ser consideradas todas as parcelas percebidas pelo agente público, incluídas as de caráter indenizatório.","gabarito":"E","anulada":false},
+      {"id":"INSS2016_031","prova":"INSS 2016","materia":"Direito Administrativo","texto":"Em decorrência do princípio da impessoalidade, as realizações administrativo-governamentais são imputadas ao ente público e não ao agente político.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_032","prova":"INSS 2016","materia":"Direito Constitucional","texto":"Basta que a pessoa nasça no território brasileiro para que seja considerada brasileiro nato, independentemente da nacionalidade dos seus pais, a não ser que algum deles, ou ambos, esteja(m) no Brasil a serviço de seu país.","gabarito":"C","anulada":true},
+      {"id":"INSS2016_033","prova":"INSS 2016","materia":"Direito Constitucional","texto":"O direito à vida desdobra-se na obrigação do Estado de garantir à pessoa o direito de continuar viva e de proporcionar-lhe condições de vida digna.","gabarito":"C","anulada":false},
+      {"id":"INSS2016_034","prova":"INSS 2016","materia":"Direito Constitucional","texto":"Em decorrência do princípio da igualdade, é vedado ao legislador elaborar norma que dê tratamento distinto a pessoas diversas.","gabarito":"E","anulada":false}
+    ];
+
+    // Junção de todas as questões na variável rawQuestions
+    const rawQuestions = [...prueba2022Data, ...prueba2016Data];
+
+    let currentQuestions = [];
+    let userAnswers = {};
+
+    // Popula o select de matérias dinamicamente com base nas matérias do JSON
+    window.onload = function() {
+        const subjects = [...new Set(rawQuestions.map(q => q.materia))].filter(Boolean);
+        const subjectSelect = document.getElementById("filter-subject");
+        subjectSelect.innerHTML = "";
+        subjects.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s;
+            opt.innerText = s;
+            subjectSelect.appendChild(opt);
+        });
+    };
+
+    function toggleSubjectSelect() {
+        const mode = document.getElementById("filter-mode").value;
+        document.getElementById("subject-group").classList.toggle("hidden", mode !== "subject");
+    }
+
+    function startQuiz() {
+        const mode = document.getElementById("filter-mode").value;
+        const subject = document.getElementById("filter-subject").value;
+        const countVal = document.getElementById("filter-count").value;
+
+        let filtered = [...rawQuestions];
+
+        if (filtered.length === 0) {
+            alert("Aviso: Nenhuma questão foi encontrada na base de dados.");
+            return;
+        }
+
+        if (mode === "subject") {
+            filtered = filtered.filter(q => q.materia === subject);
+        }
+
+        // Embaralhamento randômico do banco
+        filtered.sort(() => Math.random() - 0.5);
+
+        if (countVal !== "max") {
+            filtered = filtered.slice(0, parseInt(countVal));
+        }
+
+        currentQuestions = filtered;
+        userAnswers = {};
+        renderQuestions();
+
+        document.getElementById("setup-screen").classList.add("hidden");
+        document.getElementById("quiz-screen").classList.remove("hidden");
+        window.scrollTo(0,0);
+    }
+
+    function renderQuestions() {
+        const container = document.getElementById("questions-container");
+        container.innerHTML = "";
+
+        currentQuestions.forEach((q, index) => {
+            const qCard = document.createElement("div");
+            qCard.className = "question-card";
+            qCard.innerHTML = `
+                <div class="question-header">Questão ${index + 1} de ${currentQuestions.length} • ${q.materia} ${q.prova ? '(' + q.prova + ')' : ''}</div>
+                <div class="question-text">${q.texto}</div>
+                <div class="options">
+                    <button type="button" class="option-btn" id="btn-${q.id}-C" onclick="selectOption('${q.id}', 'C')">Certo</button>
+                    <button type="button" class="option-btn" id="btn-${q.id}-E" onclick="selectOption('${q.id}', 'E')">Errado</button>
+                </div>
+            `;
+            container.appendChild(qCard);
+        });
+    }
+
+    function selectOption(qId, choice) {
+        if (userAnswers[qId] === choice) {
+            delete userAnswers[qId];
+            document.getElementById(`btn-${qId}-C`).className = "option-btn";
+            document.getElementById(`btn-${qId}-E`).className = "option-btn";
+        } else {
+            userAnswers[qId] = choice;
+            document.getElementById(`btn-${qId}-C`).className = choice === 'C' ? "option-btn selected-certo" : "option-btn";
+            document.getElementById(`btn-${qId}-E`).className = choice === 'E' ? "option-btn selected-errado" : "option-btn";
+        }
+    }
+
+    function finishQuiz() {
+        let certas = 0;
+        let erradas = 0;
+        let emBranco = 0;
+        let anuladas = 0;
+
+        const reviewContainer = document.getElementById("review-container");
+        reviewContainer.innerHTML = "<h3 style='margin-bottom:15px;'>Gabarito e Correção Detalhada</h3>";
+
+        currentQuestions.forEach((q, index) => {
+            const userChoice = userAnswers[q.id];
+            let statusText = "";
+
+            if (q.anulada) {
+                anuladas++;
+                statusText = `<span class="badge-annulled">[ANULADA - 0 pts]</span>`;
+            } else if (!userChoice) {
+                emBranco++;
+                statusText = `<span class="badge-annulled">[EM BRANCO - 0 pts]</span>`;
+            } else if (userChoice === q.gabarito) {
+                certas++;
+                statusText = `<span class="badge-correct">[ACERTOU - +1 pt]</span>`;
+            } else {
+                erradas++;
+                statusText = `<span class="badge-wrong">[ERROU - -1 pt]</span>`;
+            }
+
+            const item = document.createElement("div");
+            item.className = "question-card";
+            item.innerHTML = `
+                <div class="question-header">Item ${index + 1} • ${q.materia} (${q.prova})</div>
+                <div class="question-text">${q.texto}</div>
+                <div style="margin-top:10px; background:#222; padding:10px; border-radius:5px;">
+                    <strong>Sua resposta:</strong> ${userChoice ? (userChoice === 'C' ? 'Certo' : 'Errado') : 'Não respondeu'} | 
+                    <strong>Gabarito Oficial:</strong> ${q.anulada ? 'Anulada' : (q.gabarito === 'C' ? 'Certo' : 'Errado')} 
+                    <br>${statusText}
+                </div>
+            `;
+            reviewContainer.appendChild(item);
+        });
+
+        const liquidos = certas - erradas;
+        document.getElementById("final-score").innerText = `${liquidos} Ponto(s) Líquidos`;
+        document.getElementById("stats-detail").innerHTML = `
+            Certas: <span class="badge-correct">${certas}</span> | 
+            Erradas: <span class="badge-wrong">${erradas}</span> | 
+            Em Branco: ${emBranco} | 
+            Anuladas: ${anuladas}
+        `;
+
+        document.getElementById("quiz-screen").classList.add("hidden");
+        document.getElementById("result-screen").classList.remove("hidden");
+        window.scrollTo(0,0);
+    }
+
+    function resetQuiz() {
+        document.getElementById("result-screen").classList.add("hidden");
+        document.getElementById("setup-screen").classList.remove("hidden");
+        window.scrollTo(0,0);
+    }
+</script>
+
+</body>
+</html>
